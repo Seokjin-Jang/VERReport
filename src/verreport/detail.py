@@ -1,6 +1,8 @@
 """도구별 상세 페이지 화면 모델. 계층: 스위트/모듈 → 파일(또는 테스트 그룹) → 함수/항목."""
 from __future__ import annotations
 
+import hashlib
+import re
 from collections import Counter
 from dataclasses import dataclass
 
@@ -153,7 +155,7 @@ def coverage_page(r: Report) -> dict:
                 ]
                 files.append(CovFile(f.file, _anchor("cov", s.name, f.file), fcells, fns, any(c.below for c in fcells)))
             mcells = cells(mod.metrics)
-            page = _unique(f"{COV_DIR}/{_anchor(s.name, mod.name) or 'module'}", used_pages) + ".html"
+            page = _unique(f"{COV_DIR}/{_file_slug(s.name, mod.name)}", used_pages) + ".html"
             modules.append(
                 CovModule(mod.name, _anchor("cov", s.name, "mod", mod.name), mcells, files,
                           any(c.below for c in mcells) or any(f.below for f in files), page)
@@ -184,6 +186,17 @@ def coverage_module_pages(cov: dict) -> list[tuple[str, dict]]:
             ctx = {k: s[k] for k in ("name", "label", "id", "badge", "gate", "headers", "gate_index")}
             pages.append((m.page, {"suite": ctx, "module": m}))
     return pages
+
+
+def _file_slug(suite: str, module: str) -> str:
+    """파일 이름용 ASCII slug. 한글 등 ASCII 밖 문자가 있으면 짧은 해시를 붙여 구분한다.
+    (Jenkins 아카이브/zip, 일부 웹 서버에서 비 ASCII 파일 이름이 깨지는 것을 피한다)"""
+    raw = f"{suite}-{module}"
+    slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
+    if not raw.isascii() or not slug:
+        digest = hashlib.sha1(module.encode("utf-8")).hexdigest()[:6]
+        slug = f"{slug}-{digest}" if slug else digest
+    return slug
 
 
 def _unique(name: str, used: set[str]) -> str:

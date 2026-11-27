@@ -80,7 +80,10 @@ def test_coverage_page(out):
     assert 'class="row-fail"' in mod  # 호출 0회 함수
     assert 'href="../assets/style.css"' in mod and 'href="../index.html"' in mod
     pages = sorted(p.name for p in (out / "cov").glob("*.html"))
-    assert pages == ["integration-core.html", "integration-io.html", "tdd-core.html", "unit-core.html", "unit-io.html"]
+    assert pages == [
+        "integration-core.html", "integration-io.html", "system-core.html", "system-io.html",
+        "tdd-core.html", "unit-core.html", "unit-io.html",
+    ]
 
 
 def test_stale_module_pages_removed(tmp_path):
@@ -103,6 +106,16 @@ def test_module_bars_folded():
     assert rows[-1].label == "외 4개 모듈" and rows[-1].text == str(1 + 2 + 3 + 4)
     assert len(rows) == 9
     assert len(_count_rows(Counter({"a": 1, "b": 2}), top=8)) == 2  # 접을 것이 없으면 그대로
+
+
+def test_module_page_ascii_names():
+    from verreport.detail import _file_slug
+
+    assert _file_slug("unit", "core") == "unit-core"
+    assert _file_slug("unit", "tests/unit") == "unit-tests-unit"
+    a, b = _file_slug("unit", "C-ARB 판정기"), _file_slug("unit", "C-ARB 판독기")
+    assert a.isascii() and a.startswith("unit-c-arb-") and a != b  # 한글만 다른 이름도 구분
+    assert _file_slug("unit", "공통").isascii()
 
 
 def test_module_page_name_collision():

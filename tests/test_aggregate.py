@@ -55,7 +55,9 @@ def _ok(name="A", suite="S"):
     [
         ("src/core/calc.cpp", "core"),
         ("src/core/sub/x.cpp", "core"),
-        ("src/main.c", "src"),
+        ("src/main.c", "main"),
+        ("src/arbiter.h", "arbiter"),  # src 바로 아래: .c/.h 를 파일 이름으로 묶음
+        ("src/a.b.c", "a"),
         ("tests/unit/a.cpp", "tests/unit"),
         ("include/a.h", "include"),
         ("main.c", "(root)"),
@@ -165,3 +167,18 @@ def test_coverage_module_files_and_hotspot(cfg):
     (mod,) = r.suites[0].coverage.modules
     assert (mod.name, mod.metrics["mcdc"].covered, mod.metrics["mcdc"].total) == ("a", 3, 4)
     assert [h.file for h in r.hotspots] == ["src/a/x.c"]
+
+
+def test_module_mapping_file_and_stem():
+    """ClaudeClang 처럼 src 바로 아래 파일을 아키텍처 컴포넌트로 묶는 매핑."""
+    m = ModuleMapper({
+        "src/arbiter": "C-ARB",           # 확장자 없는 경로: .c, .h 모두
+        "src/controller": "C-CTL",
+        "src/result_format": "C-CTL",
+        "src/eclp_types.h": "공통",        # 파일 하나
+    })
+    assert m("src/arbiter.c") == m("src/arbiter.h") == "C-ARB"
+    assert m("src/result_format.c") == m("src/controller.h") == "C-CTL"
+    assert m("src/eclp_types.h") == "공통"
+    assert m("src/arbiter_util.c") == "arbiter_util"  # 이름이 접두어로만 겹치면 매칭하지 않음
+    assert m("src/state_manager.c") == "state_manager"  # 매핑 없음: 기본 규칙

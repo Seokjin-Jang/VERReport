@@ -1,13 +1,15 @@
 """설정(TOML) 로딩. 상대 경로는 설정 파일 위치 기준으로 해석한다."""
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass, field
+from datetime import timedelta, timezone, tzinfo
 from pathlib import Path
 
 from .models import COVERAGE_METRICS
 
-DEFAULT_SUITES = ("unit", "integration", "tdd")
+DEFAULT_SUITES = ("unit", "integration", "system", "tdd")
 DEFAULT_PATTERNS = {
     "gtest": "{suite}/results.xml",
     "llvmcov": "{suite}/export.json",
@@ -39,6 +41,8 @@ class Config:
     source_root: Path = Path(".")
     # 다른 머신/컨테이너의 절대 경로를 이 디렉터리 이름부터 잘라 상대 경로로 만든다
     path_anchors: tuple[str, ...] = ("src", "tests")
+    # GTest 시각(시간대 없음)이 기록된 시간대. None 이면 이 컴퓨터의 현지 시각으로 본다.
+    test_timezone: tzinfo | None = None
     reports_dir: Path = Path("reports")
     suites: tuple[str, ...] = DEFAULT_SUITES
     patterns: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_PATTERNS))
@@ -57,7 +61,33 @@ class ConfigError(ValueError):
 
 
 _SECTIONS = {"project", "inputs", "thresholds", "modules"}
-_PROJECT_KEYS = {"name", "source_root", "path_anchors"}
+_PROJECT_KEYS = {"name", "source_root", "path_anchors", "test_timezone"}
+_OFFSET = re.compile(r"^(?:UTC)?([+-])(\d{1,2})(?::?(\d{2}))?$", re.IGNORECASE)
+
+
+def parse_timezone(value: str) -> tzinfo:
+    """"UTC", "+09:00"/"UTC+9:00" 같은 고정 오프셋, 또는 IANA 이름("Asia/Seoul")."""
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(f"project.test_timezone 은 문자열이어야 합니다 (현재: {value!r})")
+    v = value.strip()
+    if v.upper() in ("UTC", "Z", "GMT"):
+        return timezone.utc
+    m = _OFFSET.match(v)
+    if m:
+        sign, hh, mm = m.groups()
+        delta = timedelta(hours=int(hh), minutes=int(mm or 0))
+        if delta > timedelta(hours=14):
+            raise ConfigError(f"project.test_timezone 오프셋이 범위를 벗어났습니다: {value!r}")
+        return timezone(delta if sign == "+" else -delta)
+    try:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        return ZoneInfo(v)
+    except (ZoneInfoNotFoundError, ValueError) as e:
+        raise ConfigError(
+            f"project.test_timezone 을 알 수 없습니다: {value!r}. "
+            '"UTC" 나 "+09:00" 형식을 쓰거나, IANA 이름은 Windows 에서 tzdata 패키지가 필요합니다'
+        ) from e
 _INPUT_KEYS = set(DEFAULT_PATTERNS) | {"reports_dir", "suites"}
 _THRESHOLD_KEYS = {"lizard_ccn", "lizard_length", "cppcheck_gate_paths", "cppcheck_ignore_severities", "suites"}
 
@@ -141,6 +171,7 @@ def load_config(path: Path | None, reports_dir: Path | None = None) -> Config:
         project=proj.get("name", "Project"),
         source_root=rel(proj.get("source_root", ".")),
         path_anchors=_str_list("project.path_anchors", proj.get("path_anchors", ["src", "tests"])),
+        test_timezone=parse_timezone(proj["test_timezone"]) if "test_timezone" in proj else None,
         reports_dir=Path(reports_dir).resolve() if reports_dir else rel(inp.get("reports_dir", "reports")),
         suites=suites,
         patterns=patterns,

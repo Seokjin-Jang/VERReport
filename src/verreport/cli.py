@@ -11,7 +11,7 @@ from .config import Config, ConfigError, load_config
 from .aggregate import Report, Verdict, summarize
 from .loader import load
 from .parsers import ParseError
-from .render import render
+from .render import render, tz_label
 
 
 def input_status(cfg: Config) -> list[tuple[str, Path, bool]]:
@@ -31,7 +31,7 @@ _MARK = {Verdict.PASS: "PASS", Verdict.FAIL: "FAIL", Verdict.NA: "N/A "}
 
 def print_summary(r: Report) -> None:
     b = r.data.build
-    print(f"빌드: {b.project} {b.build_id} @ {b.timestamp:%Y-%m-%d %H:%M:%S}  => {_MARK[r.judgement.verdict]}")
+    print(f"빌드: {b.project} {b.build_id} @ {b.timestamp:%Y-%m-%d %H:%M:%S} {tz_label(b.timestamp)}  => {_MARK[r.judgement.verdict]}")
     for s in r.suites:
         c = s.tests.counts
         tests = f"pass {c.passed} / fail {c.failed} / skip {c.skipped}" if s.tests.available else "결과 없음"

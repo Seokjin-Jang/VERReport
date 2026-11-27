@@ -28,7 +28,18 @@ def _env() -> Environment:
         lstrip_blocks=True,
     )
     env.filters["num"] = lambda v: f"{v:.2f}".rstrip("0").rstrip(".")
+    env.filters["when"] = lambda t: f"{t:%Y-%m-%d %H:%M:%S}"
+    env.filters["tz"] = tz_label
     return env
+
+
+def tz_label(t: datetime) -> str:
+    """UTC+09:00 형식. 빌드 시각이 어느 시간대 기준인지 보는 사람이 오해하지 않게 한다."""
+    off = t.utcoffset()
+    if off is None:
+        return ""
+    m = int(off.total_seconds() // 60)
+    return f"(UTC{'+' if m >= 0 else '-'}{abs(m) // 60:02d}:{abs(m) % 60:02d})"
 
 
 def _copy_assets(out: Path) -> None:
@@ -49,7 +60,7 @@ def render(report: Report, out: Path) -> list[Path]:
     b = report.data.build
     common = {
         "build": b,
-        "generated": datetime.now(),
+        "generated": datetime.now().astimezone(),
         "version": __version__,
         "pages": PAGES,
         "root": "",

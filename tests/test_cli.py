@@ -9,7 +9,7 @@ CONFIG = ROOT / "verreport.toml"
 
 def test_load_config():
     cfg = load_config(CONFIG)
-    assert cfg.suites == ("unit", "integration", "tdd")
+    assert cfg.suites == ("unit", "integration", "system", "tdd")
     assert cfg.thresholds.lizard_ccn == 10
     assert cfg.thresholds.lizard_length == 80
     assert cfg.thresholds.suites["unit"].coverage_metric == "mcdc"

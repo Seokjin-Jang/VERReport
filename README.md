@@ -23,10 +23,13 @@ python -m venv .venv
 ```
 
 `report/index.html`을 브라우저로 열면 샘플 데이터(`samples/reports/`)로 만든 리포트를 볼 수 있습니다.
-실제 결과는 `-r`로 reports 디렉터리를 지정합니다.
+
+ClaudeClang 실제 결과는 `examples/claudeclang.toml`을 씁니다. 두 저장소를 나란히 클론했다고 가정하며,
+모듈을 아키텍처 컴포넌트(C-VAL, C-STA, C-ARB, C-CTL)로 묶고 UTC 컨테이너의 GTest 시각을 현지 시각으로 바꿉니다.
 
 ```bash
-verreport build -c verreport.toml -r ../ClaudeClang/reports -o report --build-id 128 --commit 3f2a9c1
+verreport build -c examples/claudeclang.toml -o report --build-id 128 --commit 3f2a9c1
+verreport build -c examples/claudeclang.toml -r 다른/reports -o report     # reports 위치만 바꿀 때
 ```
 
 요구 사항: Python 3.11 이상, Jinja2. C++ 함수명 디맹글에는 `llvm-cxxfilt` 또는 `c++filt`가 있으면 사용합니다(없으면 원래 이름 표시).
@@ -37,8 +40,8 @@ verreport build -c verreport.toml -r ../ClaudeClang/reports -o report --build-id
 
 | 도구 | 경로 | 생성 명령 (ClaudeClang `ci/`) |
 |---|---|---|
-| Google Test | `{unit,integration,tdd}/results.xml` | `<테스트 실행 파일> --gtest_output=xml:...` |
-| LLVM 커버리지 | `{unit,integration,tdd}/export.json` | `llvm-cov export -format=text` |
+| Google Test | `{unit,integration,system,tdd}/results.xml` | `<테스트 실행 파일> --gtest_output=xml:...` |
+| LLVM 커버리지 | `{unit,integration,system,tdd}/export.json` | `llvm-cov export -format=text` |
 | Cppcheck | `cppcheck.xml` | `cppcheck --xml --xml-version=2` |
 | Lizard | `lizard.xml` | `lizard -C 10 -L 80 --warnings_only` 출력을 `ci/lizard_report.py`로 checkstyle XML 변환 |
 
@@ -61,7 +64,7 @@ verreport build [-c 설정.toml] [-r reports 디렉터리] [-o 출력 디렉터�
 | `-r`, `--reports` | reports 디렉터리. 설정의 `inputs.reports_dir`보다 우선 |
 | `-o`, `--output` | 출력 디렉터리 (기본 `report`) |
 | `--build-id`, `--commit` | 빌드 번호/커밋 표시 (예: Jenkins `BUILD_NUMBER`, `GIT_COMMIT`) |
-| `--build-time` | 빌드 시각(ISO 8601). 생략 시 GTest 실행 시각 중 가장 이른 값 → reports 수정 시각 |
+| `--build-time` | 빌드 시각(ISO 8601). 생략 시 GTest 실행 시각 중 가장 이른 값 → reports 수정 시각. 화면에는 현지 시각과 오프셋(예: `UTC+09:00`)으로 표시 |
 | `--fail-on-verdict` | 전체 판정이 FAIL이면 종료 코드 1 |
 | `--strict` | 결과 파일을 읽지 못하면 리포트를 만들지 않고 종료 코드 2 |
 | `--no-demangle` | C++ 함수명 디맹글 생략 |
@@ -81,10 +84,11 @@ verreport build [-c 설정.toml] [-r reports 디렉터리] [-o 출력 디렉터�
 name = "ClaudeClang"
 source_root = "."                   # 경로를 이 기준 상대 경로로 정규화
 path_anchors = ["src", "tests"]     # 다른 머신/컨테이너 절대 경로를 이 디렉터리부터 자름
+test_timezone = "UTC"               # GTest 시각이 기록된 시간대 ("UTC", "+09:00", "UTC-5", IANA 이름)
 
 [inputs]
 reports_dir = "../ClaudeClang/reports"
-suites = ["unit", "integration", "tdd"]
+suites = ["unit", "integration", "system", "tdd"]
 # gtest = "{suite}/results.xml"   llvmcov = "{suite}/export.json"
 # cppcheck = "cppcheck.xml"       lizard = "lizard.xml"
 
@@ -104,13 +108,23 @@ pass_rate = 100.0
 coverage_metric = "functions"
 coverage_min = 100.0
 
+[thresholds.suites.system]
+pass_rate = 100.0                   # 요구사항 커버리지는 ClaudeClang ci/check_traceability.py 가 검사
+
 [thresholds.suites.tdd]
 pass_rate = 100.0                   # 커버리지 기준 없음: 보고만 함
 
 [modules]
-# 모듈 이름 지정 (가장 긴 prefix 우선). 지정이 없으면 src/<모듈>/..., tests/<종류>/...
-# "src/core" = "Core"
+"src/core" = "Core"                 # 디렉터리
+"src/arbiter" = "C-ARB 판정기"       # 확장자 없는 경로: src/arbiter.c, src/arbiter.h
+"src/eclp_types.h" = "공통"          # 파일 하나
 ```
+
+모듈 규칙: `[modules]`의 가장 긴 키가 먼저 적용되고, 매핑이 없으면 `src/<모듈>/...`은 `<모듈>`,
+`src` 바로 아래 파일은 확장자를 뗀 파일 이름(`arbiter.c`, `arbiter.h` → `arbiter`), 그 밖은 `tests/unit`처럼 앞 두 단계입니다.
+
+GTest는 시간대 없이 실행 환경의 시각을 기록합니다. UTC 컨테이너에서 테스트를 돌렸다면 `test_timezone = "UTC"`를 지정해야
+빌드 일시가 9시간 어긋나지 않습니다(한국 기준).
 
 알 수 없는 키, 범위를 벗어난 값(예: `coverage_min = 120`), 함께 써야 하는 값의 누락은 **오류**로 처리합니다.
 오타가 조용히 기본값으로 바뀌어 다른 기준으로 판정되는 일을 막기 위해서입니다.
@@ -138,7 +152,7 @@ pass_rate = 100.0                   # 커버리지 기준 없음: 보고만 함
 | `index.html` | 대시보드: 빌드 일시/번호/커밋, 전체 판정과 사유, 항목별 요약 표, 도구별 차트 카드와 상세 결과 버튼, 조치가 필요한 파일 |
 | `gtest.html` | 스위트 → 테스트 그룹 → 테스트 케이스 (실패 메시지, 위치) |
 | `coverage.html` | 스위트 → 모듈 → 파일 |
-| `cov/<스위트>-<모듈>.html` | 모듈의 파일 → 함수 (영역·분기 커버리지, 호출 횟수) |
+| `cov/<스위트>-<모듈>.html` | 모듈의 파일 → 함수 (영역·분기 커버리지, 호출 횟수). 파일 이름은 ASCII만 쓰고, 한글 모듈 이름에는 짧은 해시를 붙임 |
 | `cppcheck.html` | 규칙별 집계, 모듈 → 파일 → 지적 (라인, 심각도, 규칙, CWE, 판정 대상/참고) |
 | `lizard.html` | 모듈 → 파일 → 함수 (CCN, 길이, NLOC, 인자), 전체 초과 함수 목록 |
 | `assets/style.css` | 스타일 |
@@ -154,12 +168,21 @@ pass_rate = 100.0                   # 커버리지 기준 없음: 보고만 함
 ## Jenkins 연동
 
 ClaudeClang 빌드 이미지(Ubuntu 24.04, Python 3.12, LLVM)에서 실행하면 C++ 함수명도 디맹글됩니다.
-`Jenkinsfile`의 `post { always { ... } }`에 다음을 추가하는 예시입니다.
+
+1. `examples/claudeclang.toml`을 ClaudeClang 저장소 루트에 `verreport.toml`로 복사하고, 경로 두 줄을 저장소 기준으로 바꿉니다.
+   pip로 설치한 VERReport에는 `examples/`가 없으므로 설정은 ClaudeClang 쪽에 둡니다.
+
+   ```toml
+   source_root = "."
+   reports_dir = "reports"
+   ```
+
+2. `Jenkinsfile`의 `post { always { ... } }`에 다음을 추가합니다.
 
 ```groovy
 sh '''
     python3 -m venv .verreport && .verreport/bin/pip install -q git+https://github.com/Seokjin-Jang/VERReport.git
-    .verreport/bin/verreport build -c verreport.toml -r reports -o reports/verreport \
+    .verreport/bin/verreport build -c verreport.toml -o reports/verreport \
         --build-id "$BUILD_NUMBER" --commit "$GIT_COMMIT"
 '''
 publishHTML(target: [

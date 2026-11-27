@@ -44,31 +44,43 @@ class Judgement:
 
 
 # ------------------------------------------------------------------ 모듈 매핑
+def _stem(path: str) -> str:
+    """확장자를 뗀 경로. src/arbiter.c → src/arbiter"""
+    head, _, name = path.rpartition("/")
+    base = name.split(".", 1)[0] or name
+    return f"{head}/{base}" if head else base
+
+
 class ModuleMapper:
     """파일 경로 → 모듈 이름.
 
-    1) 설정 [modules] 의 prefix 매핑(가장 긴 prefix 우선)
-    2) src/<모듈>/... → <모듈>, src 바로 아래 파일 → "src"
+    1) 설정 [modules] 매핑. 키는 다음 중 하나이며, 가장 긴 키가 우선한다.
+       - 디렉터리      "src/core"        → src/core/ 아래 모든 파일
+       - 파일          "src/eclp_types.h" → 그 파일
+       - 확장자 없는 경로 "src/arbiter"   → src/arbiter.c, src/arbiter.h 등
+    2) src/<모듈>/... → <모듈>
+       src 바로 아래 파일 → 확장자를 뗀 파일 이름 (src/arbiter.c, src/arbiter.h → arbiter)
     3) 그 외 <a>/<b>/... → "a/b" (예: tests/unit), 1단계 경로 → 첫 디렉터리
     """
 
     def __init__(self, mapping: dict[str, str] | None = None):
         self.mapping = sorted(
-            ((k.replace("\\", "/").rstrip("/") + "/", v) for k, v in (mapping or {}).items()),
+            ((k.replace("\\", "/").strip("/"), v) for k, v in (mapping or {}).items()),
             key=lambda kv: -len(kv[0]),
         )
 
     def __call__(self, file: str) -> str:
         if not file:
             return GLOBAL
-        for prefix, name in self.mapping:
-            if file.startswith(prefix):
+        stem = _stem(file)
+        for key, name in self.mapping:
+            if file == key or stem == key or file.startswith(key + "/"):
                 return name
         parts = file.split("/")
         if len(parts) <= 1:
             return "(root)"
         if parts[0] == "src":
-            return parts[1] if len(parts) > 2 else "src"
+            return parts[1] if len(parts) > 2 else _stem(parts[1])
         return "/".join(parts[:2]) if len(parts) > 2 else parts[0]
 
 

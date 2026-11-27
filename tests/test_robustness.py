@@ -1,6 +1,6 @@
 """예외 상황: 깨진/빈 결과 파일, 잘못된 설정, 없는 디렉터리."""
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -87,7 +87,35 @@ def test_timezone_timestamp(reports):
     p = reports / "unit" / "results.xml"
     p.write_text(p.read_text(encoding="utf-8").replace("2026-11-27T10:00:00", "2026-11-27T09:00:00+09:00"), encoding="utf-8")
     cfg = load_config(CONFIG, reports_dir=reports)
-    assert load(cfg, demangle=False).build.timestamp == datetime(2026, 11, 27, 9, 0, 0)
+    # 시각에 시간대가 있으면 그대로 쓴다 (같은 순간인지 비교)
+    expected = datetime(2026, 11, 27, 9, 0, 0, tzinfo=timezone(timedelta(hours=9)))
+    assert load(cfg, demangle=False).build.timestamp == expected
+
+
+@pytest.mark.parametrize(
+    "tz, offset",
+    [("UTC", 0), ("+09:00", 9), ("UTC+9", 9), ("UTC-5", -5), ("-05:30", -5.5), ("Mars/Olympus", None), ("+15:00", None)],
+)
+def test_test_timezone(reports, tmp_path, tz, offset):
+    """UTC 컨테이너에서 돌린 GTest 시각(시간대 없음)을 test_timezone 으로 해석한다."""
+    p = tmp_path / "c.toml"
+    p.write_text("[project]\n" f'test_timezone = "{tz}"\n', encoding="utf-8")
+    if offset is None:
+        with pytest.raises(ConfigError, match="test_timezone"):
+            load_config(p)
+        return
+    cfg = load_config(p, reports_dir=reports)
+    ts = load(cfg, demangle=False).build.timestamp
+    assert ts == datetime(2026, 11, 27, 10, 0, 0, tzinfo=timezone(timedelta(hours=offset)))
+    assert ts.utcoffset() == datetime.now().astimezone().utcoffset()  # 표시는 이 컴퓨터의 현지 시각
+
+
+def test_tz_label():
+    from verreport.render import tz_label
+
+    assert tz_label(datetime(2026, 1, 1, tzinfo=timezone(timedelta(hours=9)))) == "(UTC+09:00)"
+    assert tz_label(datetime(2026, 1, 1, tzinfo=timezone(-timedelta(hours=5, minutes=30)))) == "(UTC-05:30)"
+    assert tz_label(datetime(2026, 1, 1)) == ""
 
 
 def test_missing_reports_dir(tmp_path, capsys):

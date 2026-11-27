@@ -6,7 +6,7 @@
   <div class="hero-main">
     <h1 id="hero-title" class="hero-title">빌드 검증 결과</h1>
     <dl class="meta">
-      <div><dt>빌드 일시</dt><dd>{{ build.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</dd></div>
+      <div><dt>빌드 일시</dt><dd>{{ build.timestamp|when }} <span class="muted tz">{{ build.timestamp|tz }}</span></dd></div>
       {% if build.build_id %}<div><dt>빌드 번호</dt><dd>#{{ build.build_id }}</dd></div>{% endif %}
       {% if build.commit %}<div><dt>커밋</dt><dd><code>{{ build.commit }}</code></dd></div>{% endif %}
     </dl>

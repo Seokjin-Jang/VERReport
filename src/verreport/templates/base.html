@@ -23,7 +23,7 @@
 {% block content %}{% endblock %}
 </main>
 <footer class="footer">
-  VERReport {{ version }} · 생성 {{ generated.strftime("%Y-%m-%d %H:%M:%S") }}
+  VERReport {{ version }} · 생성 {{ generated|when }} {{ generated|tz }}
 </footer>
 </body>
 </html>

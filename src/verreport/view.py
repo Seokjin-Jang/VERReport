@@ -22,7 +22,7 @@ SEVERITY_LABELS = {
     "portability": "portability",
     "information": "information",
 }
-SUITE_LABELS = {"unit": "단위 테스트", "integration": "통합 테스트", "tdd": "TDD 테스트"}
+SUITE_LABELS = {"unit": "단위 테스트", "integration": "통합 테스트", "system": "시스템 테스트", "tdd": "TDD 테스트"}
 VERDICT_TEXT = {Verdict.PASS: "PASS", Verdict.FAIL: "FAIL", Verdict.NA: "N/A"}
 VERDICT_ICON = {Verdict.PASS: "✔", Verdict.FAIL: "✖", Verdict.NA: "–"}
 

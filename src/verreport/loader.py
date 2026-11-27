@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, tzinfo
 from pathlib import Path
 from typing import Callable, TypeVar
 
@@ -18,22 +18,32 @@ from .paths import PathNormalizer
 T = TypeVar("T")
 
 
-def _parse_ts(value: str) -> datetime | None:
+def to_local(ts: datetime, assume: tzinfo | None = None) -> datetime:
+    """시각을 이 컴퓨터의 현지 시각(시간대 포함)으로 바꾼다.
+
+    시간대가 없는 시각은 assume(설정 project.test_timezone)의 시각으로 보고, 그것도 없으면 현지 시각으로 본다.
+    GTest 는 시간대 없이 실행 환경의 시각을 기록하므로, UTC 컨테이너에서 돌린 결과는 assume=UTC 가 필요하다.
+    """
+    if ts.tzinfo is None and assume is not None:
+        ts = ts.replace(tzinfo=assume)
+    return ts.astimezone()
+
+
+def _parse_ts(value: str, assume: tzinfo | None) -> datetime | None:
     try:
-        ts = datetime.fromisoformat(value)
+        return to_local(datetime.fromisoformat(value), assume)
     except (TypeError, ValueError):
         return None
-    return ts.replace(tzinfo=None) if ts.tzinfo else ts
 
 
 def _build_time(gtest_stamps: list[str], cfg: Config) -> datetime:
     """빌드 시각: GTest 실행 시각 중 가장 이른 값 → reports 디렉터리 수정 시각 → 현재 시각."""
-    stamps = [t for t in (_parse_ts(s) for s in gtest_stamps) if t]
+    stamps = [t for t in (_parse_ts(s, cfg.test_timezone) for s in gtest_stamps) if t]
     if stamps:
         return min(stamps)
     if cfg.reports_dir.exists():
-        return datetime.fromtimestamp(cfg.reports_dir.stat().st_mtime)
-    return datetime.now()
+        return datetime.fromtimestamp(cfg.reports_dir.stat().st_mtime).astimezone()
+    return datetime.now().astimezone()
 
 
 def _read(path: Path, fn: Callable[[Path], T], strict: bool) -> tuple[T | None, str]:
@@ -80,7 +90,7 @@ def load(
         suites[name] = sr
 
     data = VerificationData(
-        build=BuildInfo(cfg.project, build_time or _build_time(stamps, cfg), build_id),
+        build=BuildInfo(cfg.project, to_local(build_time) if build_time else _build_time(stamps, cfg), build_id),
         suites=suites,
     )
     res, data.cppcheck_error = _read(cfg.input("cppcheck"), lambda p: cppcheck.parse(p, norm), strict)
