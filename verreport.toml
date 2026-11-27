@@ -1,0 +1,38 @@
+# VERReport 설정 예시 (ClaudeClang CI 의 reports/ 구조 기준)
+[project]
+name = "ClaudeClang"
+source_root = "."               # 경로를 이 기준 상대 경로로 정규화
+path_anchors = ["src", "tests"] # docker(/workspace/...)·Jenkins 절대 경로를 이 디렉터리부터 자름
+
+[inputs]
+reports_dir = "samples/reports" # 실제 사용 시 ../ClaudeClang/reports
+suites = ["unit", "integration", "tdd"]
+# 아래는 reports_dir 기준 상대 경로. 필요 시 개별 지정
+# gtest    = "{suite}/results.xml"
+# llvmcov  = "{suite}/export.json"
+# cppcheck = "cppcheck.xml"
+# lizard   = "lizard.xml"
+
+[thresholds]
+lizard_ccn = 10                 # 순환복잡도 초과 기준
+lizard_length = 80              # 함수 라인 수 초과 기준
+cppcheck_gate_paths = ["src/"]  # 이 경로 아래 지적만 판정 (전체는 리포트에 표시)
+cppcheck_ignore_severities = ["information"]  # 도구 진단 정보는 판정 제외
+
+# 스위트별 합격 기준 (ClaudeClang CLAUDE.md 2장)
+[thresholds.suites.unit]
+pass_rate = 100.0
+coverage_metric = "mcdc"
+coverage_min = 100.0
+
+[thresholds.suites.integration]
+pass_rate = 100.0
+coverage_metric = "functions"
+coverage_min = 100.0
+
+[thresholds.suites.tdd]
+pass_rate = 100.0               # 커버리지는 보고만 하고 판정하지 않음
+
+[modules]
+# 모듈 = 소스 루트 아래 두 번째 디렉터리(src/<module>/...). prefix 매핑으로 덮어쓰기 가능
+# "src/core" = "core"

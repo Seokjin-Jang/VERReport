@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_charts.html" import badge, page_head, cov_cell %}
+{% block title %}커버리지 · {{ build.project }} 검증 리포트{% endblock %}
+{% block content %}
+{{ page_head("커버리지 상세 결과", desc="스위트 → 모듈 → 파일 → 함수. 판정 지표가 기준에 못 미치는 모듈은 펼쳐져 있고, 파일은 판정 지표가 낮은 순입니다.") }}
+
+<nav class="jump" aria-label="스위트 바로가기">
+  {% for s in suites %}<a href="#{{ s.id }}">{{ s.label }} {{ badge(s.badge) }}</a>{% endfor %}
+</nav>
+
+{% for s in suites %}
+<section class="panel" id="{{ s.id }}" aria-labelledby="{{ s.id }}-t">
+  <div class="page-head-row">
+    <h2 id="{{ s.id }}-t" class="panel-title">{{ s.label }} <span class="muted mono">{{ s.name }}</span></h2>
+    {{ badge(s.badge) }}
+  </div>
+  <p class="muted page-desc">판정: {{ s.gate }}</p>
+  {% if s.reasons %}
+  <ul class="note-list note-fail">{% for r in s.reasons %}<li><span aria-hidden="true">✖</span> {{ r }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if not s.available %}
+    <p class="empty">커버리지 결과 파일이 없습니다.</p>
+  {% else %}
+  {% set cols = s.headers|length %}
+  <div class="tree-wrap">
+    <div class="tree tree-grid cols-{{ cols }}">
+      <div class="grid-row grid-head" role="presentation">
+        <span>모듈 / 파일</span>
+        {% for h in s.headers %}<span class="num{% if loop.index0 == s.gate_index %} is-gate{% endif %}">{{ h }}</span>{% endfor %}
+      </div>
+      <div class="grid-row grid-total">
+        <span class="node-name">전체</span>
+        {% for c in s.totals %}{{ cov_cell(c) }}{% endfor %}
+      </div>
+      {% for m in s.modules %}
+      <details class="node" id="{{ m.id }}"{% if m.below %} open{% endif %}>
+        <summary class="grid-row">
+          <span class="node-name">{{ m.name }} <span class="muted">({{ m.files|length }}개 파일)</span></span>
+          {% for c in m.cells %}{{ cov_cell(c) }}{% endfor %}
+        </summary>
+        <div class="node-children">
+          {% for f in m.files %}
+          <details class="node node-file" id="{{ f.id }}">
+            <summary class="grid-row">
+              <span class="node-name mono">{{ f.file }}</span>
+              {% for c in f.cells %}{{ cov_cell(c) }}{% endfor %}
+            </summary>
+            <div class="node-body">
+              {% if f.functions %}
+              <table class="table table-compact table-fn table-fixed">
+                <thead><tr>
+                  <th scope="col">함수</th><th scope="col" class="w-sm">라인</th><th scope="col" class="num w-xs">호출</th>
+                  <th scope="col" class="num w-sm">영역</th><th scope="col" class="num w-sm">분기</th>
+                </tr></thead>
+                <tbody>
+                {% for fn in f.functions %}
+                  <tr{% if fn.uncovered %} class="row-fail"{% endif %}>
+                    <td><span class="fn">{{ fn.name }}</span></td>
+                    <td class="mono">{{ fn.lines }}</td>
+                    <td class="num{% if fn.uncovered %} is-over{% endif %}">{{ fn.count }}</td>
+                    <td class="num">{{ cov_cell(fn.regions) }}</td>
+                    <td class="num">{{ cov_cell(fn.branches) }}</td>
+                  </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+              <p class="muted note-small">llvm-cov 는 함수 단위 라인/MC/DC 요약을 내보내지 않아, 함수는 영역·분기 커버리지와 호출 횟수로 표시합니다. 호출 0회 함수는 강조됩니다.</p>
+              {% else %}
+              <p class="empty">함수 정보가 없습니다.</p>
+              {% endif %}
+            </div>
+          </details>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

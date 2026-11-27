@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<results version="2">
+  <cppcheck version="2.13"/>
+  <errors>
+    <error id="nullPointer" severity="error" msg="Null pointer dereference: p" verbose="Null pointer dereference: p">
+      <location file="src/core/calc.cpp" line="57" column="9"/>
+    </error>
+    <error id="unusedVariable" severity="style" msg="Unused variable: tmp" verbose="Unused variable: tmp">
+      <location file="src/io/reader.cpp" line="18" column="10"/>
+    </error>
+    <error id="passedByValue" severity="performance" msg="Function parameter 's' should be passed by const reference." verbose="...">
+      <location file="src/io/reader.cpp" line="31" column="25"/>
+    </error>
+    <error id="unusedFunction" severity="style" msg="The function 'helper' is never used." verbose="...">
+      <location file="tests/unit/helper.cpp" line="5" column="0"/>
+    </error>
+  </errors>
+</results>

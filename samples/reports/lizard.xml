@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="4.3">
+  <file name="src/io/reader.cpp">
+    <error line="20" column="0" severity="error" message="parse has 95 NLOC, 14 CCN, 310 token, 3 PARAM, 112 length, 4 ND" source="lizard"/>
+  </file>
+  <file name="src/core/calc.cpp">
+    <error line="60" column="0" severity="error" message="classify has 30 NLOC, 12 CCN, 150 token, 1 PARAM, 34 length, 3 ND" source="lizard"/>
+  </file>
+</checkstyle>

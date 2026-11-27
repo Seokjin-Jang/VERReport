@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_charts.html" import badge, page_head %}
+{% block title %}Cppcheck · {{ build.project }} 검증 리포트{% endblock %}
+{% block content %}
+{{ page_head("Cppcheck 상세 결과", verdict_badge, reasons,
+   "모듈 → 파일 → 지적. 판정 대상은 " ~ gate_paths ~ " 아래의 지적이며 심각도 " ~ ignored ~ " 는 제외합니다. 그 밖의 지적은 참고로 표시합니다.") }}
+
+{% if not available %}
+<section class="panel"><p class="empty">Cppcheck 결과 파일이 없습니다.</p></section>
+{% else %}
+<section class="panel">
+  <div class="tiles tiles-4">
+    <div class="tile{% if gated %} tile-fail{% endif %}"><span class="tile-value">{{ gated }}</span><span class="tile-label">판정 대상 지적</span></div>
+    <div class="tile"><span class="tile-value">{{ total }}</span><span class="tile-label">전체 지적</span></div>
+    {% for sev, n in by_severity[:2] %}
+    <div class="tile"><span class="tile-value">{{ n }}</span><span class="tile-label">{{ sev }}</span></div>
+    {% endfor %}
+  </div>
+  {% if rules %}
+  <h2 class="sub-title">규칙별</h2>
+  <div class="table-wrap">
+    <table class="table table-compact">
+      <thead><tr><th scope="col">규칙 ID</th><th scope="col">심각도</th><th scope="col" class="num">건수</th></tr></thead>
+      <tbody>
+      {% for r in rules %}
+        <tr><td class="mono">{{ r.rule }}</td><td><span class="chip {{ r.sev_cls }}">{{ r.severity }}</span></td><td class="num">{{ r.count }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2 class="panel-title">모듈별 지적</h2>
+  {% if not modules %}<p class="empty">지적이 없습니다.</p>{% endif %}
+  <div class="tree">
+    {% for m in modules %}
+    <details class="node" id="{{ m.id }}"{% if m.open %} open{% endif %}>
+      <summary class="node-row">
+        <span class="node-name">{{ m.name }} <span class="muted">({{ m.files|length }}개 파일)</span></span>
+        <span class="node-stats">
+          {% if m.gated %}<span class="chip chip-fail">판정 대상 {{ m.gated }}</span>{% endif %}
+          <span class="chip">전체 {{ m.count }}</span>
+        </span>
+      </summary>
+      <div class="node-children">
+        {% for f in m.files %}
+        <details class="node node-file" id="{{ f.id }}"{% if f.gated %} open{% endif %}>
+          <summary class="node-row">
+            <span class="node-name mono">{{ f.file }}</span>
+            <span class="node-stats">
+              {% if f.gated %}<span class="chip chip-fail">판정 대상 {{ f.gated }}</span>{% endif %}
+              <span class="chip">전체 {{ f.rows|length }}</span>
+            </span>
+          </summary>
+          <div class="table-wrap node-body">
+            <table class="table table-compact table-fixed">
+              <thead><tr>
+                <th scope="col" class="num w-xs">라인</th><th scope="col" class="w-md">심각도</th><th scope="col" class="w-lg">규칙</th>
+                <th scope="col">내용</th><th scope="col" class="w-xs">판정</th>
+              </tr></thead>
+              <tbody>
+              {% for v in f.rows %}
+                <tr{% if v.gated %} class="row-fail"{% endif %}>
+                  <td class="num mono">{{ v.line or "" }}{% if v.column %}:{{ v.column }}{% endif %}</td>
+                  <td><span class="chip {{ v.sev_cls }}">{{ v.severity }}</span>{% if v.inconclusive %} <span class="chip">inconclusive</span>{% endif %}</td>
+                  <td class="mono">{{ v.rule }}{% if v.cwe %}<span class="loc">CWE-{{ v.cwe }}</span>{% endif %}</td>
+                  <td>
+                    {{ v.message }}
+                    {% if v.verbose %}<details class="msg"><summary>자세히</summary><pre>{{ v.verbose }}</pre></details>{% endif %}
+                  </td>
+                  <td>{% if v.gated %}<span class="chip chip-fail">대상</span>{% else %}<span class="muted">참고</span>{% endif %}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

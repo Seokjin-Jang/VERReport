@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "_charts.html" import badge, page_head %}
+{% block title %}Google Test · {{ build.project }} 검증 리포트{% endblock %}
+{% block content %}
+{{ page_head("Google Test 상세 결과", desc="스위트 → 테스트 그룹 → 테스트 케이스. 실패가 있는 그룹은 펼쳐져 있습니다.") }}
+
+<nav class="jump" aria-label="스위트 바로가기">
+  {% for s in suites %}<a href="#{{ s.id }}">{{ s.label }} {{ badge(s.badge) }}</a>{% endfor %}
+</nav>
+
+{% for s in suites %}
+<section class="panel" id="{{ s.id }}" aria-labelledby="{{ s.id }}-t">
+  <div class="page-head-row">
+    <h2 id="{{ s.id }}-t" class="panel-title">{{ s.label }} <span class="muted mono">{{ s.name }}</span></h2>
+    {{ badge(s.badge) }}
+  </div>
+  {% if not s.available %}
+    <p class="empty">GTest 결과 파일이 없습니다.</p>
+  {% else %}
+  <div class="tiles tiles-4">
+    <div class="tile"><span class="tile-value">{{ s.counts.passed }}</span><span class="tile-label">성공</span></div>
+    <div class="tile{% if s.counts.failed %} tile-fail{% endif %}"><span class="tile-value">{{ s.counts.failed }}</span><span class="tile-label">실패</span></div>
+    <div class="tile"><span class="tile-value">{{ s.counts.skipped }}</span><span class="tile-label">건너뜀</span></div>
+    <div class="tile"><span class="tile-value">{{ "%.1f"|format(s.counts.pass_rate) }}%</span><span class="tile-label">성공률 · {{ "%.3f"|format(s.counts.time_sec) }}초</span></div>
+  </div>
+  {% if s.reasons %}
+  <ul class="note-list note-fail">{% for r in s.reasons %}<li><span aria-hidden="true">✖</span> {{ r }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <div class="tree">
+    {% for g in s.groups %}
+    <details class="node" id="{{ g.id }}"{% if g.open %} open{% endif %}>
+      <summary class="node-row">
+        <span class="node-name mono">{{ g.name }}</span>
+        <span class="node-stats">
+          <span class="chip chip-pass">성공 {{ g.counts.passed }}</span>
+          {% if g.counts.failed %}<span class="chip chip-fail">실패 {{ g.counts.failed }}</span>{% endif %}
+          {% if g.counts.skipped %}<span class="chip chip-skip">건너뜀 {{ g.counts.skipped }}</span>{% endif %}
+        </span>
+      </summary>
+      <div class="table-wrap node-body">
+        <table class="table table-compact table-fixed">
+          <thead><tr><th scope="col">테스트</th><th scope="col" class="w-sm">결과</th><th scope="col" class="num w-sm">시간(초)</th><th scope="col" class="w-lg">위치</th></tr></thead>
+          <tbody>
+          {% for c in g.cases %}
+            <tr class="row-{{ c.cls }}">
+              <td>
+                <span class="fn">{{ c.name }}</span>
+                {% if c.message %}
+                <details class="msg"{% if c.cls == "fail" %} open{% endif %}>
+                  <summary>{{ "실패 메시지" if c.cls == "fail" else "메시지" }}</summary>
+                  <pre>{{ c.message }}</pre>
+                </details>
+                {% endif %}
+              </td>
+              <td><span class="chip chip-{{ c.cls }}">{{ c.status }}</span></td>
+              <td class="num">{{ "%.3f"|format(c.time) }}</td>
+              <td class="loc-cell">{% if c.loc %}<code>{{ c.loc }}</code>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    {% else %}
+    <p class="empty">테스트가 없습니다.</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

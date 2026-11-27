@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="4" failures="1" disabled="1" errors="0" time="0.012" timestamp="2026-11-27T10:00:00" name="AllTests">
+  <testsuite name="CalcTest" tests="3" failures="1" disabled="0" errors="0" time="0.008">
+    <testcase name="Add" status="run" time="0.001" classname="CalcTest"/>
+    <testcase name="Div" status="run" time="0.003" classname="CalcTest">
+      <failure message="Expected equality of these values:&#x0A;  div(4, 0)&#x0A;    Which is: 1&#x0A;  0" type=""><![CDATA[src/core/calc.cpp:42
+Expected equality]]></failure>
+    </testcase>
+    <testcase name="Mul" status="run" time="0.001" classname="CalcTest"/>
+  </testsuite>
+  <testsuite name="IoTest" tests="1" failures="0" disabled="1" errors="0" time="0.000">
+    <testcase name="Read" status="notrun" result="suppressed" time="0" classname="IoTest"/>
+  </testsuite>
+</testsuites>
