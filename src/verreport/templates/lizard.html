@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_charts.html" import badge, page_head %}
+{% block title %}Lizard · {{ build.project }} 검증 리포트{% endblock %}
+{% block content %}
+{{ page_head("Lizard 상세 결과", verdict_badge, reasons,
+   "순환복잡도(CCN) > " ~ ccn_limit ~ " 또는 함수 길이 > " ~ length_limit ~ " 인 함수. 기준을 넘은 값은 강조됩니다.") }}
+
+{% if not available %}
+{% if not reasons %}<section class="panel"><p class="empty">Lizard 결과 파일이 없습니다.</p></section>{% endif %}
+{% else %}
+<section class="panel">
+  <div class="tiles tiles-3">
+    <div class="tile{% if count %} tile-fail{% endif %}"><span class="tile-value">{{ count }}</span><span class="tile-label">초과 함수</span></div>
+    <div class="tile"><span class="tile-value">{{ ccn_over }}</span><span class="tile-label">CCN &gt; {{ ccn_limit }}</span></div>
+    <div class="tile"><span class="tile-value">{{ length_over }}</span><span class="tile-label">길이 &gt; {{ length_limit }}</span></div>
+  </div>
+</section>
+
+{% macro fn_table(rows, show_file=false) %}
+<div class="table-wrap">
+  <table class="table table-compact table-fixed">
+    <thead><tr>
+      <th scope="col">함수</th>{% if not show_file %}<th scope="col" class="num w-xs">라인</th>{% endif %}
+      <th scope="col" class="num w-sm">CCN</th><th scope="col" class="num w-sm">길이</th>
+      <th scope="col" class="num w-xs">NLOC</th><th scope="col" class="num w-xs">인자</th>
+    </tr></thead>
+    <tbody>
+    {% for f in rows %}
+      <tr>
+        <td><span class="fn">{{ f.name }}</span>{% if show_file %}<span class="loc">{{ f.file }}:{{ f.line }}</span>{% endif %}</td>
+        {% if not show_file %}<td class="num mono">{{ f.line }}</td>{% endif %}
+        <td class="num{% if f.ccn_over %} is-over{% endif %}">{% if f.ccn_over %}<span aria-hidden="true">✖ </span>{% endif %}{{ f.ccn }}</td>
+        <td class="num{% if f.length_over %} is-over{% endif %}">{% if f.length_over %}<span aria-hidden="true">✖ </span>{% endif %}{{ f.length }}</td>
+        <td class="num">{{ f.nloc }}</td>
+        <td class="num">{{ f.params }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+<section class="panel">
+  <h2 class="panel-title">모듈별</h2>
+  {% if not modules %}<p class="empty">기준을 넘은 함수가 없습니다.</p>{% endif %}
+  <div class="tree">
+    {% for m in modules %}
+    <details class="node" id="{{ m.id }}" open>
+      <summary class="node-row">
+        <span class="node-name">{{ m.name }} <span class="muted">({{ m.files|length }}개 파일)</span></span>
+        <span class="node-stats"><span class="chip chip-fail">초과 {{ m.count }}</span></span>
+      </summary>
+      <div class="node-children">
+        {% for f in m.files %}
+        <details class="node node-file" id="{{ f.id }}" open>
+          <summary class="node-row">
+            <span class="node-name mono">{{ f.file }}</span>
+            <span class="node-stats"><span class="chip">초과 {{ f.rows|length }}</span></span>
+          </summary>
+          <div class="node-body">{{ fn_table(f.rows) }}</div>
+        </details>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</section>
+
+{% if all %}
+<section class="panel">
+  <h2 class="panel-title">전체 초과 함수 (CCN 높은 순)</h2>
+  {{ fn_table(all, true) }}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

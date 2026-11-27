@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ build.project }} 검증 리포트{% endblock %}</title>
+<link rel="stylesheet" href="{{ root }}assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="{{ root }}index.html">{{ build.project }} <span class="brand-sub">검증 리포트</span></a>
+    <nav class="nav" aria-label="리포트 페이지">
+      <a href="{{ root }}index.html"{% if active == "index" %} aria-current="page"{% endif %}>대시보드</a>
+      <a href="{{ root }}{{ pages.gtest }}"{% if active == "gtest" %} aria-current="page"{% endif %}>Google Test</a>
+      <a href="{{ root }}{{ pages.coverage }}"{% if active == "coverage" %} aria-current="page"{% endif %}>커버리지</a>
+      <a href="{{ root }}{{ pages.cppcheck }}"{% if active == "cppcheck" %} aria-current="page"{% endif %}>Cppcheck</a>
+      <a href="{{ root }}{{ pages.lizard }}"{% if active == "lizard" %} aria-current="page"{% endif %}>Lizard</a>
+    </nav>
+  </div>
+</header>
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+<footer class="footer">
+  VERReport {{ version }} · 생성 {{ generated|when }} {{ generated|tz }}
+</footer>
+</body>
+</html>

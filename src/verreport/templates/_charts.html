@@ -1,0 +1,94 @@
+{# 판정 배지: 색만으로 구분하지 않도록 아이콘 + 글자를 함께 쓴다 #}
+{% macro badge(b) -%}
+<span class="badge badge-{{ b.verdict }}"><span aria-hidden="true">{{ b.icon }}</span> {{ b.text }}</span>
+{%- endmacro %}
+
+{# 가로 막대 목록. 값은 막대 옆에 글자로 직접 표시하고, 툴팁(<title>)은 보조로만 쓴다 #}
+{% macro bar_rows(rows, label_width="") -%}
+<div class="bars{% if label_width %} bars-{{ label_width }}{% endif %}">
+{% for row in rows %}
+  <div class="bar-row{% if row.emphasis %} is-gate{% endif %}">
+    <span class="bar-label">{{ row.label }}</span>
+    <svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="{{ row.tooltip }}">
+      <rect class="track" x="0" y="0" width="100" height="10"/>
+      {% if row.value > 0 %}
+      <rect class="fill" x="0" y="0" width="{{ row.value|num }}" height="10"><title>{{ row.tooltip }}</title></rect>
+      {% endif %}
+      {% if row.threshold is not none %}
+      <line class="threshold" x1="{{ row.threshold|num }}" x2="{{ row.threshold|num }}" y1="0" y2="10"><title>기준 {{ row.threshold|num }}%</title></line>
+      {% endif %}
+    </svg>
+    <span class="bar-value{% if row.below %} is-below{% endif %}">{% if row.below %}<span aria-hidden="true">✖ </span>{% endif %}{{ row.text }}</span>
+  </div>
+{% endfor %}
+</div>
+{%- endmacro %}
+
+{# 100% 누적 막대 (성공/실패/건너뜀). 세그먼트 사이는 표면색 2px 간격 #}
+{% macro stack_rows(rows) -%}
+<div class="bars">
+{% for row in rows %}
+  <div class="bar-row">
+    <span class="bar-label">{{ row.label }}</span>
+    {% if row.available and row.total %}
+    <svg class="bar bar-thick" viewBox="0 0 100 10" preserveAspectRatio="none" role="img"
+         aria-label="{{ row.label }}: {% for s in row.segments %}{{ s.label }} {{ s.value }}{% if not loop.last %}, {% endif %}{% endfor %}">
+      {% for s in row.segments %}
+      <rect class="seg seg-{{ s.cls }}" x="{{ s.x|num }}" y="0" width="{{ s.width|num }}" height="10"><title>{{ row.label }} {{ s.label }}: {{ s.value }}건</title></rect>
+      {% endfor %}
+    </svg>
+    <span class="bar-value">{{ row.total }}건</span>
+    {% else %}
+    <span class="bar-empty">{{ row.absent if not row.available else "테스트 0건" }}</span>
+    <span class="bar-value">–</span>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+<ul class="legend" aria-label="범례">
+  <li><span class="swatch seg-good" aria-hidden="true"></span>성공</li>
+  <li><span class="swatch seg-critical" aria-hidden="true"></span>실패</li>
+  <li><span class="swatch seg-warning" aria-hidden="true"></span>건너뜀</li>
+</ul>
+{%- endmacro %}
+
+{# 커버리지 칸: 퍼센트 + 미니 막대. 측정 대상이 없으면 – #}
+{% macro cov_cell(c) -%}
+{% if c.empty %}
+<span class="cell muted" title="측정 대상 없음">–</span>
+{% else %}
+<span class="cell{% if c.below %} is-below{% endif %}{% if c.gate %} is-gate{% endif %}" title="{{ c.covered }}/{{ c.total }}">
+  <span class="cell-text">{% if c.below %}<span aria-hidden="true">✖ </span>{% endif %}{{ "%.1f"|format(c.percent) }}%</span>
+  <svg class="mini" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true">
+    <rect class="track" x="0" y="0" width="100" height="4"/>
+    {% if c.percent > 0 %}<rect class="fill" x="0" y="0" width="{{ c.percent|num }}" height="4"/>{% endif %}
+  </svg>
+  <span class="cell-sub">{{ c.covered }}/{{ c.total }}</span>
+</span>
+{% endif %}
+{%- endmacro %}
+
+{# 가벼운 커버리지 칸 (파일 수천 개 목록용): 퍼센트만, 건수는 title #}
+{% macro cov_text(c) -%}
+{% if c.empty %}<span class="cell muted">–</span>{% else %}<span class="cell{% if c.below %} is-below{% endif %}" title="{{ c.covered }}/{{ c.total }}"><span class="cell-text">{% if c.below %}✖ {% endif %}{{ "%.1f"|format(c.percent) }}%</span></span>{% endif %}
+{%- endmacro %}
+
+{# 페이지 머리: 제목, 판정, 사유 #}
+{% macro page_head(title, b=none, reasons=[], desc="") -%}
+<section class="panel page-head">
+  <div class="page-head-row">
+    <h1 class="page-title">{{ title }}</h1>
+    {% if b %}{{ badge(b) }}{% endif %}
+  </div>
+  {% if desc %}<p class="muted page-desc">{{ desc }}</p>{% endif %}
+  {% if reasons %}
+  <ul class="note-list note-fail">
+    {% for r in reasons %}<li><span aria-hidden="true">✖</span> {{ r }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{%- endmacro %}
+
+{% macro detail_button(href, text="상세 결과 보기") -%}
+<a class="button" href="{{ href }}">{{ text }} <span aria-hidden="true">→</span></a>
+{%- endmacro %}

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% from "_charts.html" import badge, bar_rows, stack_rows, detail_button %}
+{% block content %}
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-main">
+    <h1 id="hero-title" class="hero-title">빌드 검증 결과</h1>
+    <dl class="meta">
+      <div><dt>빌드 일시</dt><dd>{{ build.timestamp|when }} <span class="muted tz">{{ build.timestamp|tz }}</span></dd></div>
+      {% if build.build_id %}<div><dt>빌드 번호</dt><dd>#{{ build.build_id }}</dd></div>{% endif %}
+      {% if build.commit %}<div><dt>커밋</dt><dd><code>{{ build.commit }}</code></dd></div>{% endif %}
+    </dl>
+  </div>
+  <div class="hero-verdict verdict-{{ overall.verdict }}">
+    <span class="hero-verdict-label">전체 판정</span>
+    <span class="hero-verdict-value"><span aria-hidden="true">{{ overall.icon }}</span> {{ overall.text }}</span>
+  </div>
+</section>
+
+{% if reasons or warnings %}
+<section class="notes" aria-label="판정 사유와 경고">
+  {% if reasons %}
+  <ul class="note-list note-fail">
+    {% for r in reasons %}<li><span aria-hidden="true">✖</span> {{ r }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if warnings %}
+  <ul class="note-list note-warn">
+    {% for w in warnings %}<li><span aria-hidden="true">⚠</span> {{ w }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="panel" aria-labelledby="summary-title">
+  <h2 id="summary-title" class="panel-title">항목별 요약</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th scope="col">항목</th><th scope="col">판정</th><th scope="col">결과</th><th scope="col">기준</th><th scope="col"><span class="sr-only">상세</span></th></tr></thead>
+      <tbody>
+      {% for row in summary %}
+        <tr>
+          <th scope="row">{{ row.label }}</th>
+          <td>{{ badge(row.badge) }}</td>
+          <td class="num-text">{{ row.value }}</td>
+          <td class="muted">{{ row.criterion }}</td>
+          <td class="cell-action"><a href="{{ row.page }}">상세</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="cards">
+
+  <section class="card" aria-labelledby="card-gtest">
+    <header class="card-head">
+      <h2 id="card-gtest" class="card-title">Google Test</h2>
+      {{ badge(tests_badge) }}
+    </header>
+    <div class="card-body">
+      {{ stack_rows(test_rows) }}
+      <h3 class="sub-title">스위트별 결과</h3>
+      <div class="table-wrap">
+        <table class="table table-compact">
+          <thead><tr>
+            <th scope="col">스위트</th><th scope="col">판정</th>
+            <th scope="col" class="num">성공</th><th scope="col" class="num">실패</th>
+            <th scope="col" class="num">건너뜀</th><th scope="col" class="num">시간(초)</th>
+          </tr></thead>
+          <tbody>
+          {% for t in test_table %}
+            <tr>
+              <th scope="row">{{ t.label }}</th>
+              <td>{{ badge(t.badge) }}</td>
+              {% if t.available %}
+              <td class="num">{{ t.counts.passed }}</td>
+              <td class="num{% if t.counts.failed %} is-over{% endif %}">{{ t.counts.failed }}</td>
+              <td class="num">{{ t.counts.skipped }}</td>
+              <td class="num">{{ "%.3f"|format(t.counts.time_sec) }}</td>
+              {% else %}
+              <td colspan="4" class="muted">{{ t.absent }}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <h3 class="sub-title">실패한 테스트{% if failures_total > failures|length %} (상위 {{ failures|length }} / 전체 {{ failures_total }}){% endif %}</h3>
+      {% if failures %}
+      <ul class="fail-list">
+        {% for f in failures %}
+        <li>
+          <span class="fn">{{ f.case.suite }}.{{ f.case.name }}</span>
+          <span class="loc">{{ f.suite }}{% if f.case.file %} · {{ f.case.file }}:{{ f.case.line }}{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty">실패한 테스트가 없습니다.</p>
+      {% endif %}
+    </div>
+    <footer class="card-foot">{{ detail_button(pages.gtest) }}</footer>
+  </section>
+
+  <section class="card" aria-labelledby="card-cov">
+    <header class="card-head">
+      <h2 id="card-cov" class="card-title">커버리지 <span class="card-sub">LLVM</span></h2>
+    </header>
+    <div class="card-body cov-blocks">
+      {% for b in coverage %}
+      <div class="cov-block">
+        <div class="cov-head">
+          <h3 class="cov-title">{{ b.label }}</h3>
+          {{ badge(b.badge) }}
+        </div>
+        <p class="cov-gate muted">판정: {{ b.gate }}</p>
+        {% if b.available and b.rows %}
+          {{ bar_rows(b.rows) }}
+        {% else %}
+          <p class="empty">{{ b.absent }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <ul class="legend" aria-label="범례">
+        <li><span class="swatch fill" aria-hidden="true"></span>커버리지</li>
+        <li><span class="swatch-line" aria-hidden="true"></span>판정 기준</li>
+      </ul>
+    </div>
+    <footer class="card-foot">{{ detail_button(pages.coverage) }}</footer>
+  </section>
+
+  <section class="card" aria-labelledby="card-cpp">
+    <header class="card-head">
+      <h2 id="card-cpp" class="card-title">Cppcheck</h2>
+      {{ badge(cppcheck.badge) }}
+    </header>
+    <div class="card-body">
+      {% if cppcheck.available %}
+      <div class="tiles">
+        <div class="tile"><span class="tile-value">{{ cppcheck.gated }}</span><span class="tile-label">판정 대상 지적</span></div>
+        <div class="tile"><span class="tile-value">{{ cppcheck.total }}</span><span class="tile-label">전체 지적</span></div>
+      </div>
+      {% if cppcheck.total %}
+      <h3 class="sub-title">심각도별</h3>
+      {{ bar_rows(cppcheck.severity_rows) }}
+      <h3 class="sub-title">모듈별</h3>
+      {{ bar_rows(cppcheck.module_rows) }}
+      <h3 class="sub-title">상위 규칙</h3>
+      {{ bar_rows(cppcheck.rule_rows, "wide") }}
+      {% endif %}
+      {% else %}
+      <p class="empty">{{ cppcheck.absent }}</p>
+      {% endif %}
+    </div>
+    <footer class="card-foot">{{ detail_button(pages.cppcheck) }}</footer>
+  </section>
+
+  <section class="card" aria-labelledby="card-liz">
+    <header class="card-head">
+      <h2 id="card-liz" class="card-title">Lizard</h2>
+      {{ badge(lizard.badge) }}
+    </header>
+    <div class="card-body">
+      {% if lizard.available %}
+      <div class="tiles">
+        <div class="tile"><span class="tile-value">{{ lizard.ccn_over }}</span><span class="tile-label">순환복잡도 &gt; {{ lizard.ccn_limit }}</span></div>
+        <div class="tile"><span class="tile-value">{{ lizard.length_over }}</span><span class="tile-label">함수 길이 &gt; {{ lizard.length_limit }}</span></div>
+      </div>
+      {% if lizard.count %}
+      <h3 class="sub-title">모듈별 초과 함수</h3>
+      {{ bar_rows(lizard.module_rows) }}
+      <h3 class="sub-title">초과 함수 (CCN 높은 순)</h3>
+      <div class="table-wrap">
+        <table class="table table-compact">
+          <thead><tr><th scope="col">함수</th><th scope="col" class="num">CCN</th><th scope="col" class="num">길이</th></tr></thead>
+          <tbody>
+          {% for i in lizard.worst %}
+            <tr>
+              <td><span class="fn">{{ i.fn.name }}</span><span class="loc">{{ i.fn.file }}:{{ i.fn.line }}</span></td>
+              <td class="num{% if i.ccn_over %} is-over{% endif %}">{{ i.fn.ccn }}</td>
+              <td class="num{% if i.length_over %} is-over{% endif %}">{{ i.fn.length }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="empty">{{ lizard.absent }}</p>
+      {% endif %}
+    </div>
+    <footer class="card-foot">{{ detail_button(pages.lizard) }}</footer>
+  </section>
+
+</div>
+
+<section class="panel" aria-labelledby="hot-title">
+  <h2 id="hot-title" class="panel-title">조치가 필요한 파일</h2>
+  {% if hotspots %}
+  <p class="muted panel-desc">실패 테스트 ×3, Cppcheck 판정 대상 ×2, Lizard 초과 ×1, 커버리지 기준 미달 +1 로 점수를 매긴 상위 10개 파일입니다.</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr>
+        <th scope="col">파일</th><th scope="col">모듈</th>
+        <th scope="col" class="num">실패 테스트</th><th scope="col" class="num">Cppcheck</th>
+        <th scope="col" class="num">Lizard</th><th scope="col">커버리지</th><th scope="col" class="num">점수</th>
+      </tr></thead>
+      <tbody>
+      {% for h in hotspots %}
+        <tr>
+          <th scope="row"><code>{{ h.file }}</code></th>
+          <td>{{ h.module }}</td>
+          <td class="num">{{ h.failed_tests or "" }}</td>
+          <td class="num">{{ h.cppcheck or "" }}</td>
+          <td class="num">{{ h.lizard or "" }}</td>
+          <td>{% if h.low_coverage %}<span class="is-below"><span aria-hidden="true">✖</span> 미달</span>{% endif %}</td>
+          <td class="num">{{ h.score }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">조치가 필요한 파일이 없습니다.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

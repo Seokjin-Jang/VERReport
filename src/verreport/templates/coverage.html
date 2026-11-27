@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_charts.html" import badge, page_head, cov_cell, cov_text %}
+{% block title %}커버리지 · {{ build.project }} 검증 리포트{% endblock %}
+{% block content %}
+{{ page_head("커버리지 상세 결과", desc="스위트 → 모듈 → 파일. 파일 이름을 누르면 모듈 페이지에서 함수 단위 결과를 봅니다. 판정 지표가 기준에 못 미치는 모듈은 펼쳐져 있고, 파일은 판정 지표가 낮은 순입니다.") }}
+
+<nav class="jump" aria-label="스위트 바로가기">
+  {% for s in suites %}<a href="#{{ s.id }}">{{ s.label }} {{ badge(s.badge) }}</a>{% endfor %}
+</nav>
+
+{% for s in suites %}
+<section class="panel" id="{{ s.id }}" aria-labelledby="{{ s.id }}-t">
+  <div class="page-head-row">
+    <h2 id="{{ s.id }}-t" class="panel-title">{{ s.label }} <span class="muted mono">{{ s.name }}</span></h2>
+    {{ badge(s.badge) }}
+  </div>
+  <p class="muted page-desc">판정: {{ s.gate }}</p>
+  {% if s.reasons %}
+  <ul class="note-list note-fail">{% for r in s.reasons %}<li><span aria-hidden="true">✖</span> {{ r }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if not s.available %}
+    {% if not s.reasons %}<p class="empty">커버리지 결과 파일이 없습니다.</p>{% endif %}
+  {% else %}
+  {% set cols = s.headers|length %}
+  <div class="tree-wrap">
+    <div class="tree tree-grid cols-{{ cols }}">
+      <div class="grid-row grid-head" role="presentation">
+        <span>모듈 / 파일</span>
+        {% for h in s.headers %}<span class="num{% if loop.index0 == s.gate_index %} is-gate{% endif %}">{{ h }}</span>{% endfor %}
+      </div>
+      <div class="grid-row grid-total">
+        <span class="node-name">전체</span>
+        {% for c in s.totals %}{{ cov_cell(c) }}{% endfor %}
+      </div>
+      {% for m in s.modules %}
+      <details class="node" id="{{ m.id }}"{% if m.below %} open{% endif %}>
+        <summary class="grid-row">
+          <span class="node-name">{{ m.name }} <span class="muted">({{ m.files|length }}개 파일)</span></span>
+          {% for c in m.cells %}{{ cov_cell(c) }}{% endfor %}
+        </summary>
+        <div class="node-children">
+          <div class="module-link"><a href="{{ m.page }}">{{ m.name }} 모듈의 함수 상세 보기 <span aria-hidden="true">→</span></a></div>
+          {% for f in m.files %}
+          <div class="grid-row file-row">
+            <span class="node-name mono"><a href="{{ m.page }}#{{ f.id }}">{{ f.file }}</a></span>
+            {% for c in f.cells %}{{ cov_text(c) }}{% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}
