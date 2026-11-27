@@ -328,6 +328,15 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .tree-grid .node-file > summary { border-radius: 0; }
 .tree-grid .node-file .node-name { padding-left: 1.25em; }
 
+.file-row { padding: 6px 12px; border-top: 1px solid var(--grid); }
+.file-row .node-name { font-weight: 400; padding-left: 1.25em; }
+.file-row a { color: var(--text); }
+.file-row a:hover { color: var(--link); }
+.module-link { padding: 6px 12px 8px calc(12px + 1.25em); font-size: 13px; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-2); font-size: 13px; }
+.crumbs [aria-current] { color: var(--text); font-weight: 600; }
+.node:target, .node:target > summary { background: var(--na-wash); }
+
 .cell { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
 .cell-text { font-weight: 600; }
 .cell-sub { color: var(--text-2); font-size: 11px; }
@@ -336,7 +345,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .mini .track { fill: var(--track); }
 .mini .fill { fill: var(--series-1); }
 .table-fn .cell { justify-items: end; }
-.table-fn .mini { width: 5rem; }
+.table-fn .cell-sub { display: block; }
 
 @media (max-width: 560px) {
   .tiles-3, .tiles-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }

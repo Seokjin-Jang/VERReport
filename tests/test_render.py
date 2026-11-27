@@ -31,7 +31,7 @@ def test_outputs(out):
 
 def test_csp_safe(out):
     """Jenkins HTML Publisher 기본 CSP: 스크립트, 인라인 style, 외부 리소스 금지."""
-    for page in out.glob("*.html"):
+    for page in out.rglob("*.html"):
         html = page.read_text(encoding="utf-8")
         assert "<script" not in html, page.name
         assert not re.search(r"\sstyle=", html), page.name
@@ -64,14 +64,53 @@ def test_gtest_page(out):
 
 def test_coverage_page(out):
     html = (out / "coverage.html").read_text(encoding="utf-8")
-    # 모듈 → 파일 → 함수
+    # coverage.html: 모듈 → 파일, 파일은 모듈 페이지의 함수 상세로 연결
     assert "core" in html and "src/core/calc.cpp" in html
-    assert '<span class="fn">div</span>' in html
-    assert 'class="row-fail"' in html  # 호출 0회 함수
+    assert 'href="cov/unit-core.html#cov-unit-src-core-calc-cpp"' in html
+    assert '<span class="fn">' not in html  # 함수 상세는 모듈 페이지에만
     assert "is-below" in html  # unit MC/DC 미달
     # 기준 미달 모듈은 펼침, 통합 테스트(통과)의 모듈은 접힘
     assert 'id="cov-unit-mod-core" open' in html
     assert 'id="cov-integration-mod-core">' in html
+
+    # 모듈 페이지: 파일 → 함수
+    mod = (out / "cov" / "unit-core.html").read_text(encoding="utf-8")
+    assert 'id="cov-unit-src-core-calc-cpp"' in mod
+    assert '<span class="fn">div</span>' in mod
+    assert 'class="row-fail"' in mod  # 호출 0회 함수
+    assert 'href="../assets/style.css"' in mod and 'href="../index.html"' in mod
+    pages = sorted(p.name for p in (out / "cov").glob("*.html"))
+    assert pages == ["integration-core.html", "integration-io.html", "tdd-core.html", "unit-core.html", "unit-io.html"]
+
+
+def test_stale_module_pages_removed(tmp_path):
+    cfg = load_config(CONFIG)
+    (tmp_path / "cov").mkdir()
+    (tmp_path / "cov" / "unit-removed.html").write_text("old", encoding="utf-8")
+    (tmp_path / "cov" / "keep.txt").write_text("not ours", encoding="utf-8")
+    render(summarize(load(cfg, demangle=False), cfg), tmp_path)
+    assert not (tmp_path / "cov" / "unit-removed.html").exists()
+    assert (tmp_path / "cov" / "keep.txt").exists()
+
+
+def test_module_bars_folded():
+    from collections import Counter
+
+    from verreport.view import _count_rows
+
+    rows = _count_rows(Counter({f"m{i}": i for i in range(1, 13)}), top=8)
+    assert [r.label for r in rows][:2] == ["m12", "m11"]  # 건수 내림차순
+    assert rows[-1].label == "외 4개 모듈" and rows[-1].text == str(1 + 2 + 3 + 4)
+    assert len(rows) == 9
+    assert len(_count_rows(Counter({"a": 1, "b": 2}), top=8)) == 2  # 접을 것이 없으면 그대로
+
+
+def test_module_page_name_collision():
+    from verreport.detail import _unique
+
+    used: set[str] = set()
+    assert [_unique("cov/unit-a-b", used) for _ in range(3)] == ["cov/unit-a-b", "cov/unit-a-b-2", "cov/unit-a-b-3"]
+    assert _unique("cov/UNIT-A-B", used) == "cov/UNIT-A-B-4"  # 대소문자만 다른 이름도 충돌로 본다
 
 
 def test_cppcheck_page(out):

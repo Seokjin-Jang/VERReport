@@ -15,7 +15,8 @@
     {{ badge(s.badge) }}
   </div>
   {% if not s.available %}
-    <p class="empty">GTest 결과 파일이 없습니다.</p>
+    {% if s.reasons %}<ul class="note-list note-fail">{% for r in s.reasons %}<li><span aria-hidden="true">✖</span> {{ r }}</li>{% endfor %}</ul>
+    {% else %}<p class="empty">GTest 결과 파일이 없습니다.</p>{% endif %}
   {% else %}
   <div class="tiles tiles-4">
     <div class="tile"><span class="tile-value">{{ s.counts.passed }}</span><span class="tile-label">성공</span></div>

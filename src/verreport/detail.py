@@ -109,10 +109,20 @@ class CovModule:
     cells: list[Cell]
     files: list[CovFile]
     below: bool
+    page: str = ""  # 함수 상세가 있는 모듈 페이지 (out 기준 상대 경로)
+
+
+COV_DIR = "cov"
 
 
 def coverage_page(r: Report) -> dict:
+    """커버리지 화면 모델.
+
+    대규모 프로젝트(파일 수천, 함수 수만)에서 한 페이지가 수십~수백 MB 가 되지 않도록
+    coverage.html 에는 스위트 → 모듈 → 파일까지만 두고, 함수 상세는 모듈별 페이지(cov/*.html)로 나눈다.
+    """
     suites = []
+    used_pages: set[str] = set()
     for s in r.suites:
         cv = s.coverage
         metrics = [m for m in COVERAGE_METRICS if m in cv.totals]
@@ -143,9 +153,10 @@ def coverage_page(r: Report) -> dict:
                 ]
                 files.append(CovFile(f.file, _anchor("cov", s.name, f.file), fcells, fns, any(c.below for c in fcells)))
             mcells = cells(mod.metrics)
+            page = _unique(f"{COV_DIR}/{_anchor(s.name, mod.name) or 'module'}", used_pages) + ".html"
             modules.append(
                 CovModule(mod.name, _anchor("cov", s.name, "mod", mod.name), mcells, files,
-                          any(c.below for c in mcells) or any(f.below for f in files))
+                          any(c.below for c in mcells) or any(f.below for f in files), page)
             )
         suites.append(
             {
@@ -163,6 +174,25 @@ def coverage_page(r: Report) -> dict:
             }
         )
     return {"suites": suites}
+
+
+def coverage_module_pages(cov: dict) -> list[tuple[str, dict]]:
+    """coverage_page() 결과에서 모듈별 함수 상세 페이지 목록 [(상대 경로, 컨텍스트)] 을 만든다."""
+    pages = []
+    for s in cov["suites"]:
+        for m in s["modules"]:
+            ctx = {k: s[k] for k in ("name", "label", "id", "badge", "gate", "headers", "gate_index")}
+            pages.append((m.page, {"suite": ctx, "module": m}))
+    return pages
+
+
+def _unique(name: str, used: set[str]) -> str:
+    """대소문자만 다른 이름도 같은 파일이 되는 파일 시스템(Windows)을 고려해 소문자로 중복을 피한다."""
+    candidate, n = name, 2
+    while candidate.lower() in used:
+        candidate, n = f"{name}-{n}", n + 1
+    used.add(candidate.lower())
+    return candidate
 
 
 # ------------------------------------------------------------------ Cppcheck

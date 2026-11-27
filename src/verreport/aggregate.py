@@ -249,6 +249,14 @@ def combine(js: Iterable[Judgement]) -> Judgement:
     return Judgement(Verdict.PASS, reasons)
 
 
+def _missing(label: str, error: str, warnings: list[str]) -> Judgement:
+    """결과가 없을 때: 파일이 없으면 N/A(경고), 파일이 깨졌으면 FAIL. 깨진 결과가 통과로 보이면 안 된다."""
+    if error:
+        return Judgement(Verdict.FAIL, [f"{label} 결과 파일을 읽지 못했습니다: {error}"])
+    warnings.append(f"{label} 결과 파일이 없습니다")
+    return Judgement(Verdict.NA)
+
+
 def _judge_tests(suite: str, c: Counts, min_rate: float) -> Judgement:
     reasons = []
     if c.executed == 0:
@@ -299,8 +307,8 @@ def summarize(data: VerificationData, cfg: Config) -> Report:
             if counts.skipped:
                 warnings.append(f"[{name}] 건너뛴 테스트 {counts.skipped}건")
         else:
-            counts, tj, groups, failures = Counts(), Judgement(Verdict.NA), [], []
-            warnings.append(f"[{name}] GTest 결과 파일이 없습니다")
+            counts, groups, failures = Counts(), [], []
+            tj = _missing(f"[{name}] GTest", sr.tests_error, warnings)
         tests = TestSummary(sr.tests_available, counts, tj, groups, failures)
 
         metric = st.coverage_metric if st else None
@@ -317,8 +325,8 @@ def summarize(data: VerificationData, cfg: Config) -> Report:
                     if m and m.total and m.covered * 100 < minimum * m.total:
                         spot(f.file).low_coverage = True
         else:
-            cj, modules = Judgement(Verdict.NA), []
-            warnings.append(f"[{name}] 커버리지 결과 파일이 없습니다")
+            modules = []
+            cj = _missing(f"[{name}] 커버리지", sr.coverage_error, warnings)
         coverage = CoverageSummary(sr.coverage_available, sr.coverage_totals, metric, minimum, cj, modules)
         suites.append(SuiteSummary(name, tests, coverage))
 
@@ -333,8 +341,7 @@ def summarize(data: VerificationData, cfg: Config) -> Report:
         reasons = [f"Cppcheck 지적 {len(gated)}건 ({', '.join(gate)})"] if gated else []
         cpj = Judgement(Verdict.FAIL if gated else Verdict.PASS, reasons)
     else:
-        cpj = Judgement(Verdict.NA)
-        warnings.append("Cppcheck 결과 파일이 없습니다")
+        cpj = _missing("Cppcheck", data.cppcheck_error, warnings)
     cpp_modules = [
         ModuleItems(
             mod, len(items),
@@ -362,8 +369,7 @@ def summarize(data: VerificationData, cfg: Config) -> Report:
             [f"Lizard 초과 함수 {len(items)}건 (CCN>{th.lizard_ccn} 또는 길이>{th.lizard_length})"] if items else [],
         )
     else:
-        lj = Judgement(Verdict.NA)
-        warnings.append("Lizard 결과 파일이 없습니다")
+        lj = _missing("Lizard", data.lizard_error, warnings)
     liz_modules = [
         ModuleItems(mod, len(its), [FileItems(f, x) for f, x in group_by(its, lambda i: i.fn.file).items()])
         for mod, its in group_by(items, lambda i: module_of(i.fn.file)).items()

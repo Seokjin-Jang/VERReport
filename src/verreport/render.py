@@ -52,21 +52,36 @@ def render(report: Report, out: Path) -> list[Path]:
         "generated": datetime.now(),
         "version": __version__,
         "pages": PAGES,
+        "root": "",
     }
-    written = []
+    written: list[Path] = []
 
-    page = out / "index.html"
-    page.write_text(env.get_template("index.html").render(**common, active="index", **dashboard(report)), encoding="utf-8")
-    written.append(page)
+    def write(rel: str, template: str, **ctx) -> None:
+        page = out / rel
+        page.parent.mkdir(parents=True, exist_ok=True)
+        # 페이지 단위로 스트리밍해서 큰 페이지도 메모리에 한 번에 올리지 않는다
+        with page.open("w", encoding="utf-8", newline="\n") as f:
+            for chunk in env.get_template(template).generate(**{**common, **ctx}):
+                f.write(chunk)
+        written.append(page)
 
-    builders = {
-        "gtest": detail.gtest_page,
-        "coverage": detail.coverage_page,
-        "cppcheck": detail.cppcheck_page,
-        "lizard": detail.lizard_page,
+    write("index.html", "index.html", active="index", **dashboard(report))
+
+    cov = detail.coverage_page(report)
+    contexts = {
+        "gtest": detail.gtest_page(report),
+        "coverage": cov,
+        "cppcheck": detail.cppcheck_page(report),
+        "lizard": detail.lizard_page(report),
     }
     for key, name in PAGES.items():
-        page = out / name
-        page.write_text(env.get_template(name).render(**common, active=key, **builders[key](report)), encoding="utf-8")
-        written.append(page)
+        write(name, name, active=key, **contexts[key])
+
+    # 모듈별 함수 커버리지 페이지. 이전 빌드에서 남은 모듈 페이지는 지운다 (없어진 모듈로 가는 링크 방지).
+    cov_dir = out / detail.COV_DIR
+    if cov_dir.is_dir():
+        for old in cov_dir.glob("*.html"):
+            old.unlink()
+    for rel, ctx in detail.coverage_module_pages(cov):
+        write(rel, "coverage_module.html", active="coverage", root="../", **ctx)
     return written

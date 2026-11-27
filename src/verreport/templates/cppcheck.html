@@ -6,7 +6,7 @@
    "모듈 → 파일 → 지적. 판정 대상은 " ~ gate_paths ~ " 아래의 지적이며 심각도 " ~ ignored ~ " 는 제외합니다. 그 밖의 지적은 참고로 표시합니다.") }}
 
 {% if not available %}
-<section class="panel"><p class="empty">Cppcheck 결과 파일이 없습니다.</p></section>
+{% if not reasons %}<section class="panel"><p class="empty">Cppcheck 결과 파일이 없습니다.</p></section>{% endif %}
 {% else %}
 <section class="panel">
   <div class="tiles tiles-4">

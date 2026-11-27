@@ -102,6 +102,8 @@ class SuiteResult:
     tests: list[TestCase] = field(default_factory=list)
     coverage_files: list[FileCoverage] = field(default_factory=list)
     coverage_totals: dict[str, CoverageMetric] = field(default_factory=dict)
+    tests_error: str = ""  # 결과 파일은 있으나 읽지 못한 경우 사유
+    coverage_error: str = ""
 
 
 @dataclass
@@ -109,6 +111,8 @@ class VerificationData:
     build: BuildInfo
     suites: dict[str, SuiteResult] = field(default_factory=dict)
     cppcheck_available: bool = False
+    cppcheck_error: str = ""
     violations: list[Violation] = field(default_factory=list)
     lizard_available: bool = False
+    lizard_error: str = ""
     complexity: list[FunctionComplexity] = field(default_factory=list)

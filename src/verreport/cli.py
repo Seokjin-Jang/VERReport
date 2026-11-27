@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
 from . import __version__
-from .config import Config, load_config
+from .config import Config, ConfigError, load_config
 from .aggregate import Report, Verdict, summarize
 from .loader import load
 from .parsers import ParseError
@@ -51,24 +52,46 @@ def print_summary(r: Report) -> None:
         print(f"    ! {w}")
 
 
+EXIT_OK, EXIT_VERDICT_FAIL, EXIT_ERROR = 0, 1, 2
+
+
+def _error(msg: str) -> int:
+    print(f"오류: {msg}", file=sys.stderr)
+    return EXIT_ERROR
+
+
 def cmd_build(args) -> int:
-    cfg = load_config(args.config, args.reports)
+    try:
+        cfg = load_config(args.config, args.reports)
+    except FileNotFoundError as e:
+        return _error(f"설정 파일이 없습니다: {e.filename}")
+    except tomllib.TOMLDecodeError as e:
+        return _error(f"설정 파일 TOML 문법 오류 ({args.config}): {e}")
+    except ConfigError as e:
+        return _error(f"설정 오류 ({args.config}): {e}")
+
     print(f"reports: {cfg.reports_dir}")
+    if not cfg.reports_dir.is_dir():
+        print(f"경고: reports 디렉터리가 없습니다. 모든 항목이 N/A 로 표시됩니다: {cfg.reports_dir}", file=sys.stderr)
     for label, path, ok in input_status(cfg):
         print(f"  [{label:20}] {'OK' if ok else '없음':4} {path}")
+
     try:
-        data = load(cfg, args.build_id, args.build_time, demangle=not args.no_demangle)
-        data.build.commit = args.commit
+        data = load(cfg, args.build_id, args.build_time, demangle=not args.no_demangle, strict=args.strict)
     except ParseError as e:
-        print(f"오류: {e}", file=sys.stderr)
-        return 2
+        return _error(str(e))
+    data.build.commit = args.commit
+
     report = summarize(data, cfg)
     print_summary(report)
-    pages = render(report, Path(args.output))
+    try:
+        pages = render(report, Path(args.output))
+    except OSError as e:
+        return _error(f"리포트를 쓰지 못했습니다 ({args.output}): {e}")
     print(f"리포트: {pages[0].resolve()}")
     if args.fail_on_verdict and report.judgement.verdict is Verdict.FAIL:
-        return 1
-    return 0
+        return EXIT_VERDICT_FAIL
+    return EXIT_OK
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -91,6 +114,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     b.add_argument("--no-demangle", action="store_true", help="C++ 함수명 디맹글 생략")
     b.add_argument("--fail-on-verdict", action="store_true", help="전체 판정이 FAIL 이면 종료 코드 1")
+    b.add_argument(
+        "--strict", action="store_true",
+        help="결과 파일을 읽지 못하면 리포트를 만들지 않고 종료 코드 2 (기본: 해당 항목을 오류/FAIL 로 표시하고 계속)",
+    )
     b.set_defaults(func=cmd_build)
     args = ap.parse_args(argv)
     return args.func(args)

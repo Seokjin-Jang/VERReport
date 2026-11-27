@@ -6,7 +6,7 @@
    "순환복잡도(CCN) > " ~ ccn_limit ~ " 또는 함수 길이 > " ~ length_limit ~ " 인 함수. 기준을 넘은 값은 강조됩니다.") }}
 
 {% if not available %}
-<section class="panel"><p class="empty">Lizard 결과 파일이 없습니다.</p></section>
+{% if not reasons %}<section class="panel"><p class="empty">Lizard 결과 파일이 없습니다.</p></section>{% endif %}
 {% else %}
 <section class="panel">
   <div class="tiles tiles-3">

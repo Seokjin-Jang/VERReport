@@ -80,7 +80,7 @@
               <td class="num">{{ t.counts.skipped }}</td>
               <td class="num">{{ "%.3f"|format(t.counts.time_sec) }}</td>
               {% else %}
-              <td colspan="4" class="muted">결과 없음</td>
+              <td colspan="4" class="muted">{{ t.absent }}</td>
               {% endif %}
             </tr>
           {% endfor %}
@@ -119,7 +119,7 @@
         {% if b.available and b.rows %}
           {{ bar_rows(b.rows) }}
         {% else %}
-          <p class="empty">커버리지 결과 없음</p>
+          <p class="empty">{{ b.absent }}</p>
         {% endif %}
       </div>
       {% endfor %}
@@ -151,7 +151,7 @@
       {{ bar_rows(cppcheck.rule_rows, "wide") }}
       {% endif %}
       {% else %}
-      <p class="empty">Cppcheck 결과 없음</p>
+      <p class="empty">{{ cppcheck.absent }}</p>
       {% endif %}
     </div>
     <footer class="card-foot">{{ detail_button(pages.cppcheck) }}</footer>
@@ -188,7 +188,7 @@
       </div>
       {% endif %}
       {% else %}
-      <p class="empty">Lizard 결과 없음</p>
+      <p class="empty">{{ lizard.absent }}</p>
       {% endif %}
     </div>
     <footer class="card-foot">{{ detail_button(pages.lizard) }}</footer>

@@ -67,7 +67,7 @@ def parse(
 ) -> tuple[list[FileCoverage], dict[str, CoverageMetric]]:
     """반환: (파일별 커버리지, 전체 합계)."""
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:  # BOM 허용
             doc = json.load(f)
         data = doc["data"][0]
     except json.JSONDecodeError as e:

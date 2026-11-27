@@ -39,7 +39,7 @@
     </svg>
     <span class="bar-value">{{ row.total }}건</span>
     {% else %}
-    <span class="bar-empty">{{ "결과 없음" if not row.available else "테스트 0건" }}</span>
+    <span class="bar-empty">{{ row.absent if not row.available else "테스트 0건" }}</span>
     <span class="bar-value">–</span>
     {% endif %}
   </div>
@@ -66,6 +66,11 @@
   <span class="cell-sub">{{ c.covered }}/{{ c.total }}</span>
 </span>
 {% endif %}
+{%- endmacro %}
+
+{# 가벼운 커버리지 칸 (파일 수천 개 목록용): 퍼센트만, 건수는 title #}
+{% macro cov_text(c) -%}
+{% if c.empty %}<span class="cell muted">–</span>{% else %}<span class="cell{% if c.below %} is-below{% endif %}" title="{{ c.covered }}/{{ c.total }}"><span class="cell-text">{% if c.below %}✖ {% endif %}{{ "%.1f"|format(c.percent) }}%</span></span>{% endif %}
 {%- endmacro %}
 
 {# 페이지 머리: 제목, 판정, 사유 #}
